@@ -138,13 +138,15 @@ export default function KioskPage() {
 
       case 'SCANNING':
         return (
-          <div className="w-full h-screen bg-gradient-animated">
-            <div className="absolute top-8 left-0 right-0 text-center z-10">
-              <h2 className="text-3xl font-bold text-white font-[family-name:var(--font-outfit)] glow-text">
-                📱 請掃描 QR Code
-              </h2>
-            </div>
+          <div className="w-full h-screen relative">
             <QrScanner onScan={handleQrScanned} active={true} />
+            <div className="absolute top-8 left-0 right-0 text-center z-20 pointer-events-none">
+              <div className="inline-block px-8 py-3 rounded-full bg-black/60 backdrop-blur-sm">
+                <h2 className="text-2xl font-bold text-white font-[family-name:var(--font-outfit)]">
+                  📱 請掃描 QR Code
+                </h2>
+              </div>
+            </div>
           </div>
         );
 
