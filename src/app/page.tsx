@@ -1,65 +1,86 @@
-import Image from "next/image";
+import Link from 'next/link';
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-animated">
+      {/* Floating particles */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {Array.from({ length: 15 }).map((_, i) => (
+          <div
+            key={i}
+            className="particle"
+            style={{
+              left: `${10 + (i * 6) % 90}%`,
+              top: `${5 + (i * 13) % 90}%`,
+              animationDelay: `${i * 0.4}s`,
+              animationDuration: `${4 + (i % 4)}s`,
+              width: `${2 + (i % 3) * 2}px`,
+              height: `${2 + (i % 3) * 2}px`,
+              opacity: 0.15 + (i % 5) * 0.05,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="relative z-10 text-center space-y-8 max-w-2xl mx-auto">
+        {/* Logo / Title */}
+        <div className="space-y-4">
+          <div className="text-6xl mb-4">✨</div>
+          <h1 className="text-5xl md:text-6xl font-bold font-[family-name:var(--font-outfit)] bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            IP Verse AI
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+          <p className="text-xl text-white/60">互動式 AI 合照體驗</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        {/* Description */}
+        <p className="text-white/40 text-lg leading-relaxed max-w-md mx-auto">
+          與虛擬 IP 角色一起拍攝 AI 合照
+          <br />
+          選擇你喜歡的場景，AI 為你創作獨一無二的合照
+        </p>
+
+        {/* Navigation cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+          {/* Join - Mobile */}
+          <Link
+            href="/join"
+            className="group block bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl transition-all duration-300 hover:translate-y-[-4px] hover:shadow-2xl hover:border-purple-500/30 hover:bg-white/10"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <div className="text-4xl mb-4">📱</div>
+            <h2 className="text-2xl font-semibold text-white mb-2 font-[family-name:var(--font-outfit)]">
+              參加者入口
+            </h2>
+            <p className="text-white/50 text-sm">
+              使用手機輸入 Email，取得專屬 QR Code
+            </p>
+            <div className="mt-4 text-purple-400 text-sm group-hover:text-purple-300 transition-colors">
+              前往 /join →
+            </div>
+          </Link>
+
+          {/* Kiosk - Desktop */}
+          <Link
+            href="/kiosk"
+            className="group block bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl transition-all duration-300 hover:translate-y-[-4px] hover:shadow-2xl hover:border-blue-500/30 hover:bg-white/10"
           >
-            Documentation
-          </a>
+            <div className="text-4xl mb-4">🖥️</div>
+            <h2 className="text-2xl font-semibold text-white mb-2 font-[family-name:var(--font-outfit)]">
+              展示端
+            </h2>
+            <p className="text-white/50 text-sm">
+              Mac / Chrome 大螢幕展示端，掃描 QR Code 開始拍照
+            </p>
+            <div className="mt-4 text-blue-400 text-sm group-hover:text-blue-300 transition-colors">
+              前往 /kiosk →
+            </div>
+          </Link>
         </div>
-      </main>
-    </div>
+
+        {/* Footer */}
+        <p className="text-white/20 text-xs mt-16">
+          IP Verse AI MVP — Demo Version
+        </p>
+      </div>
+    </main>
   );
 }
