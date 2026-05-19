@@ -18,9 +18,18 @@ export default function Checkbox({
   required = false,
 }: CheckboxProps) {
   return (
-    <label
-      htmlFor={id}
+    <div
       className="flex items-start gap-3 cursor-pointer select-none group"
+      onClick={() => onChange(!checked)}
+      role="checkbox"
+      aria-checked={checked}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          onChange(!checked);
+        }
+      }}
     >
       <div className="relative flex-shrink-0 mt-0.5">
         <input
@@ -29,11 +38,12 @@ export default function Checkbox({
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
           required={required}
-          className="sr-only"
+          className="absolute opacity-0 w-0 h-0"
+          tabIndex={-1}
         />
         <div
           className={`
-            w-5 h-5 rounded-md border-2 transition-all duration-200 flex items-center justify-center
+            w-6 h-6 rounded-md border-2 transition-all duration-200 flex items-center justify-center
             ${
               checked
                 ? 'bg-gradient-to-r from-blue-500 to-purple-600 border-transparent'
@@ -43,7 +53,7 @@ export default function Checkbox({
         >
           {checked && (
             <svg
-              className="w-3 h-3 text-white"
+              className="w-4 h-4 text-white"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -62,6 +72,6 @@ export default function Checkbox({
         {label}
         {required && <span className="text-pink-400 ml-1">*</span>}
       </span>
-    </label>
+    </div>
   );
 }
