@@ -32,7 +32,7 @@ export async function sendGeneratedImage(
     await resend.emails.send({
       from: fromEmail,
       to: email,
-      subject: '🎨 你的 IP Verse AI 合照已完成！',
+      subject: `進入虛擬偶像的世界｜${sceneName}`,
       html: `
         <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0614; color: #e8e0f0; padding: 40px 30px; border-radius: 16px;">
           <div style="text-align: center; margin-bottom: 30px;">
