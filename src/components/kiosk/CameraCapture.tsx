@@ -18,6 +18,15 @@ export default function CameraCapture({
   const [showFlash, setShowFlash] = useState(false);
   const hasCapturedRef = useRef(false);
 
+  const stopCamera = useCallback(() => {
+    if (webcamRef.current?.video?.srcObject) {
+      const stream = webcamRef.current.video.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      webcamRef.current.video.srcObject = null;
+      console.log('📷 Camera stopped');
+    }
+  }, []);
+
   const capture = useCallback(() => {
     if (webcamRef.current && !hasCapturedRef.current) {
       hasCapturedRef.current = true;
@@ -28,11 +37,13 @@ export default function CameraCapture({
       setTimeout(() => {
         const imageSrc = webcamRef.current?.getScreenshot();
         if (imageSrc) {
+          // Stop camera immediately after capture
+          stopCamera();
           onCapture(imageSrc);
         }
       }, 150);
     }
-  }, [onCapture]);
+  }, [onCapture, stopCamera]);
 
   // Auto-capture when countdown reaches 0
   useEffect(() => {
@@ -45,6 +56,13 @@ export default function CameraCapture({
   useEffect(() => {
     hasCapturedRef.current = false;
   }, []);
+
+  // Cleanup: ensure camera stops on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [stopCamera]);
 
   const videoConstraints = {
     width: 1920,
