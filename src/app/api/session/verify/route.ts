@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSessionByToken, updateSession } from '@/lib/session-store';
+import { findSessionByToken, updateSession } from '@/lib/session-store';
 import type { VerifySessionRequest, VerifySessionResponse } from '@/types';
 
 export async function POST(request: Request) {
@@ -15,20 +15,12 @@ export async function POST(request: Request) {
     }
 
     // Find session by token
-    const session = await getSessionByToken(token);
+    const session = findSessionByToken(token);
 
     if (!session) {
       return NextResponse.json<VerifySessionResponse>(
-        { success: false, error: 'Session 不存在' },
+        { success: false, error: 'Session 不存在或已過期' },
         { status: 404 }
-      );
-    }
-
-    // Check expiration
-    if (new Date(session.expiresAt) < new Date()) {
-      return NextResponse.json<VerifySessionResponse>(
-        { success: false, error: 'Session 已過期，請重新掃描' },
-        { status: 410 }
       );
     }
 
@@ -41,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     // Activate session
-    await updateSession(session.id, { status: 'active' });
+    updateSession(session.id, { status: 'active' });
 
     return NextResponse.json<VerifySessionResponse>({
       success: true,

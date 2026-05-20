@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { promises as fs } from 'fs';
 
 function getOpenAIClient(): OpenAI {
   return new OpenAI({
@@ -9,16 +8,16 @@ function getOpenAIClient(): OpenAI {
 
 /**
  * Generate a composite image using OpenAI GPT-Image-2 via Images API.
- * Combines a user photo, a virtual IP character reference, and a scene prompt.
+ * Edge-compatible: no fs dependency — reads IP character from public URL.
  *
- * @param userPhotoBase64 - Base64 data URL of the user's photo (data:image/jpeg;base64,...)
- * @param ipCharacterPath - Absolute file path to the IP character image
+ * @param userPhotoBase64 - Base64 data URL of the user's photo
+ * @param ipCharacterUrl - URL to the IP character image (public asset)
  * @param scenePrompt - Text prompt describing the scene
- * @returns Base64 string of the generated image (without data URL prefix)
+ * @returns Base64 string of the generated image
  */
 export async function generateCompositeImage(
   userPhotoBase64: string,
-  ipCharacterPath: string,
+  ipCharacterUrl: string,
   scenePrompt: string
 ): Promise<string> {
   // Check if OpenAI API key is configured
@@ -30,9 +29,13 @@ export async function generateCompositeImage(
   }
 
   try {
-    // Read IP character image and convert to base64
-    const ipCharacterBuffer = await fs.readFile(ipCharacterPath);
-    const ipCharacterBase64 = ipCharacterBuffer.toString('base64');
+    // Fetch IP character image from public URL and convert to base64
+    const ipResponse = await fetch(ipCharacterUrl);
+    if (!ipResponse.ok) {
+      throw new Error(`Failed to fetch IP character image: ${ipResponse.status}`);
+    }
+    const ipArrayBuffer = await ipResponse.arrayBuffer();
+    const ipCharacterBase64 = Buffer.from(ipArrayBuffer).toString('base64');
 
     // Strip data URL prefix from user photo if present
     const userPhotoClean = userPhotoBase64.replace(
@@ -55,10 +58,8 @@ Instructions:
 
     console.log('🎨 Calling OpenAI gpt-image-2 via Images API...');
 
-    // Use Images API (openai.images.edit) with gpt-image-2
-    // images.edit supports multiple input images as reference
+    // Use Images API with gpt-image-2
     const userImageFile = createImageFile(userPhotoClean, 'user-photo.png');
-    const ipCharacterFile = createImageFile(ipCharacterBase64, 'ip-character.png');
 
     const response = await getOpenAIClient().images.edit({
       model: 'gpt-image-2',
@@ -78,7 +79,6 @@ Instructions:
       }
       if (imageData.url) {
         console.log('✅ Image generated (URL), fetching...');
-        // Fetch the image and convert to base64
         const imgResponse = await fetch(imageData.url);
         const imgBuffer = await imgResponse.arrayBuffer();
         return Buffer.from(imgBuffer).toString('base64');
@@ -105,7 +105,7 @@ function createImageFile(base64Data: string, filename: string): File {
 }
 
 /**
- * Creates a simple mock image (gradient) for testing without API key.
+ * Creates a simple mock image for testing without API key.
  */
 function createMockImage(): string {
   const minimalPng =

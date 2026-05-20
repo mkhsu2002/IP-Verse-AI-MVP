@@ -1,92 +1,70 @@
-import { promises as fs } from 'fs';
-import path from 'path';
-import { nanoid } from 'nanoid';
-import { SESSION_TTL_MINUTES } from './constants';
 import type { Session } from '@/types';
+import { SESSION_TTL_MINUTES } from './constants';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+/**
+ * Edge-compatible Session Store.
+ * Uses in-memory Map for MVP.
+ * For production, replace with Cloudflare KV or D1.
+ */
 
-async function ensureDataDir(): Promise<void> {
-  try {
-    await fs.access(DATA_DIR);
-  } catch {
-    await fs.mkdir(DATA_DIR, { recursive: true });
+const sessions = new Map<string, Session>();
+
+/** Create a new session */
+export function createSession(session: Session): void {
+  sessions.set(session.id, session);
+  console.log(`📝 Session created: ${session.id} (email: ${session.email})`);
+}
+
+/** Find session by ID */
+export function findSessionById(id: string): Session | undefined {
+  const session = sessions.get(id);
+  if (!session) return undefined;
+
+  // Check expiry
+  if (new Date(session.expiresAt) < new Date()) {
+    sessions.delete(id);
+    console.log(`⏰ Session expired and removed: ${id}`);
+    return undefined;
   }
-}
-
-async function readSessions(): Promise<Session[]> {
-  await ensureDataDir();
-  try {
-    const data = await fs.readFile(SESSIONS_FILE, 'utf-8');
-    return JSON.parse(data) as Session[];
-  } catch {
-    return [];
-  }
-}
-
-async function writeSessions(sessions: Session[]): Promise<void> {
-  await ensureDataDir();
-  await fs.writeFile(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
-}
-
-export async function createSession(
-  email: string,
-  consent: boolean
-): Promise<Session> {
-  const sessions = await readSessions();
-
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + SESSION_TTL_MINUTES * 60 * 1000);
-
-  const session: Session = {
-    id: nanoid(12),
-    token: nanoid(16),
-    email,
-    consent,
-    status: 'pending',
-    createdAt: now.toISOString(),
-    expiresAt: expiresAt.toISOString(),
-  };
-
-  sessions.push(session);
-  await writeSessions(sessions);
 
   return session;
 }
 
-export async function getSessionByToken(
-  token: string
-): Promise<Session | null> {
-  const sessions = await readSessions();
-  return sessions.find((s) => s.token === token) || null;
+/** Find session by token */
+export function findSessionByToken(token: string): Session | undefined {
+  for (const session of sessions.values()) {
+    if (session.token === token) {
+      // Check expiry
+      if (new Date(session.expiresAt) < new Date()) {
+        sessions.delete(session.id);
+        console.log(`⏰ Session expired and removed: ${session.id}`);
+        return undefined;
+      }
+      return session;
+    }
+  }
+  return undefined;
 }
 
-export async function getSessionById(id: string): Promise<Session | null> {
-  const sessions = await readSessions();
-  return sessions.find((s) => s.id === id) || null;
-}
-
-export async function updateSession(
+/** Update session */
+export function updateSession(
   id: string,
   updates: Partial<Session>
-): Promise<Session | null> {
-  const sessions = await readSessions();
-  const index = sessions.findIndex((s) => s.id === id);
+): Session | undefined {
+  const session = sessions.get(id);
+  if (!session) return undefined;
 
-  if (index === -1) return null;
-
-  sessions[index] = { ...sessions[index], ...updates };
-  await writeSessions(sessions);
-
-  return sessions[index];
+  const updated = { ...session, ...updates };
+  sessions.set(id, updated);
+  return updated;
 }
 
-export async function cleanExpiredSessions(): Promise<void> {
-  const sessions = await readSessions();
-  const now = new Date();
-  const active = sessions.filter(
-    (s) => new Date(s.expiresAt) > now || s.status === 'completed'
-  );
-  await writeSessions(active);
+/** Delete session */
+export function deleteSession(id: string): void {
+  sessions.delete(id);
+}
+
+/** Get session TTL in ms */
+export function getSessionTTLMs(): number {
+  return SESSION_TTL_MINUTES * 60 * 1000;
 }

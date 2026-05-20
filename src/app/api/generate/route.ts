@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getSessionById, updateSession } from '@/lib/session-store';
+import { findSessionById, updateSession } from '@/lib/session-store';
 import { generateCompositeImage } from '@/lib/openai-generate';
 import { sendGeneratedImage } from '@/lib/email-sender';
 import { getRandomScene } from '@/lib/scenes';
 import type { GenerateRequest, GenerateResponse } from '@/types';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { headers } from 'next/headers';
 
 export async function POST(request: Request) {
   try {
@@ -28,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     // Verify session
-    const session = await getSessionById(sessionId);
+    const session = findSessionById(sessionId);
 
     if (!session) {
       return NextResponse.json<GenerateResponse>(
@@ -47,34 +46,25 @@ export async function POST(request: Request) {
     // Select random scene
     const scene = getRandomScene();
 
-    // IP character path
-    const ipCharacterPath = path.join(
-      process.cwd(),
-      'public',
-      'ip-characters',
-      'default-mascot.png'
-    );
+    // Build absolute URL for the IP character image
+    const headersList = await headers();
+    const host = headersList.get('host') || 'localhost:3000';
+    const protocol = headersList.get('x-forwarded-proto') || 'http';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+    const ipCharacterUrl = `${baseUrl}/ip-characters/default-mascot.png`;
 
     // Generate composite image
     const generatedBase64 = await generateCompositeImage(
       userPhoto,
-      ipCharacterPath,
+      ipCharacterUrl,
       scene.prompt
     );
 
-    // Save generated image to public/generated/
-    const generatedDir = path.join(process.cwd(), 'public', 'generated');
-    await mkdir(generatedDir, { recursive: true });
-
-    const imageFileName = `${sessionId}.png`;
-    const imagePath = path.join(generatedDir, imageFileName);
-    const imageBuffer = Buffer.from(generatedBase64, 'base64');
-    await writeFile(imagePath, imageBuffer);
-
-    const imageUrl = `/generated/${imageFileName}`;
+    // Return image as a data URL (no filesystem write needed)
+    const imageUrl = `data:image/png;base64,${generatedBase64}`;
 
     // Update session
-    await updateSession(sessionId, {
+    updateSession(sessionId, {
       status: 'completed',
       scene: scene.name,
       generatedImageUrl: imageUrl,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createSession } from '@/lib/session-store';
-import type { CreateSessionRequest, CreateSessionResponse } from '@/types';
+import { createSession, getSessionTTLMs } from '@/lib/session-store';
+import type { CreateSessionRequest, CreateSessionResponse, Session } from '@/types';
+import { nanoid } from 'nanoid';
 
 export async function POST(request: Request) {
   try {
@@ -32,7 +33,18 @@ export async function POST(request: Request) {
     }
 
     // Create session
-    const session = await createSession(email, consent);
+    const now = new Date();
+    const session: Session = {
+      id: nanoid(),
+      email: email.trim(),
+      token: nanoid(32),
+      status: 'pending',
+      consent: true,
+      createdAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + getSessionTTLMs()).toISOString(),
+    };
+
+    createSession(session);
 
     return NextResponse.json<CreateSessionResponse>({
       success: true,
