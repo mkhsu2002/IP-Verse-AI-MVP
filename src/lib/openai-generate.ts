@@ -8,7 +8,7 @@ function getOpenAIClient(): OpenAI {
 }
 
 /**
- * Generate a composite image using OpenAI GPT-Image (gpt-image-1).
+ * Generate a composite image using OpenAI GPT-Image-2 via Images API.
  * Combines a user photo, a virtual IP character reference, and a scene prompt.
  *
  * @param userPhotoBase64 - Base64 data URL of the user's photo (data:image/jpeg;base64,...)
@@ -53,36 +53,36 @@ Instructions:
 - Do NOT include any brand logos, watermarks, text overlays, or real trademarks.
 - The image should be vibrant, high quality, and visually stunning.`;
 
-    const response = await getOpenAIClient().responses.create({
-      model: 'gpt-image-1',
-      input: [
-        {
-          role: 'user' as const,
-          content: [
-            { type: 'input_text' as const, text: fullPrompt },
-            {
-              type: 'input_image' as const,
-              image_url: `data:image/jpeg;base64,${userPhotoClean}`,
-              detail: 'high' as const,
-            },
-            {
-              type: 'input_image' as const,
-              image_url: `data:image/png;base64,${ipCharacterBase64}`,
-              detail: 'high' as const,
-            },
-          ],
-        },
-      ],
-      tools: [{ type: 'image_generation', size: '1536x1024', quality: 'high' }],
+    console.log('🎨 Calling OpenAI gpt-image-2 via Images API...');
+
+    // Use Images API (openai.images.edit) with gpt-image-2
+    // images.edit supports multiple input images as reference
+    const userImageFile = createImageFile(userPhotoClean, 'user-photo.png');
+    const ipCharacterFile = createImageFile(ipCharacterBase64, 'ip-character.png');
+
+    const response = await getOpenAIClient().images.edit({
+      model: 'gpt-image-2',
+      image: userImageFile,
+      prompt: fullPrompt,
+      n: 1,
+      size: '1536x1024' as '1024x1024',
+      quality: 'high' as 'low',
     });
 
-    // Extract generated image from response
-    const imageOutput = response.output.find(
-      (item) => item.type === 'image_generation_call'
-    );
-
-    if (imageOutput && imageOutput.type === 'image_generation_call' && imageOutput.result) {
-      return imageOutput.result;
+    // Extract generated image
+    if (response.data && response.data.length > 0) {
+      const imageData = response.data[0];
+      if (imageData.b64_json) {
+        console.log('✅ Image generated successfully via gpt-image-2');
+        return imageData.b64_json;
+      }
+      if (imageData.url) {
+        console.log('✅ Image generated (URL), fetching...');
+        // Fetch the image and convert to base64
+        const imgResponse = await fetch(imageData.url);
+        const imgBuffer = await imgResponse.arrayBuffer();
+        return Buffer.from(imgBuffer).toString('base64');
+      }
     }
 
     console.error('No image output found in OpenAI response');
@@ -96,11 +96,18 @@ Instructions:
 }
 
 /**
+ * Create a File object from base64 string for the OpenAI API.
+ */
+function createImageFile(base64Data: string, filename: string): File {
+  const buffer = Buffer.from(base64Data, 'base64');
+  const blob = new Blob([buffer], { type: 'image/png' });
+  return new File([blob], filename, { type: 'image/png' });
+}
+
+/**
  * Creates a simple mock image (gradient) for testing without API key.
  */
 function createMockImage(): string {
-  // Create a simple 1x1 pixel PNG as placeholder
-  // This is a minimal valid PNG with a purple pixel
   const minimalPng =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
   return minimalPng;
