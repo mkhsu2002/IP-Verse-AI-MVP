@@ -98,7 +98,6 @@ Instructions:
       image: inputImages,
       mask: maskFile,
       prompt: fullPrompt,
-      input_fidelity: 'high',
       n: 1,
       quality: 'high',
       output_format: 'png',
