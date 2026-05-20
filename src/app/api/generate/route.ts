@@ -8,8 +8,8 @@ import { headers } from 'next/headers';
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as GenerateRequest;
-    const { sessionId, userPhoto } = body;
+    const body = (await request.json()) as any;
+    const { sessionId, userPhoto, maskPhoto } = body;
 
     // Validate inputs
     if (!sessionId || typeof sessionId !== 'string') {
@@ -50,14 +50,21 @@ export async function POST(request: Request) {
     const headersList = await headers();
     const host = headersList.get('host') || 'localhost:3000';
     const protocol = headersList.get('x-forwarded-proto') || 'http';
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+    let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+
+    // 如果 host 是自訂網域，則強制改為原生 workers.dev 域名，避免 Cloudflare CDN-Loop Protection 導致 fetch 失敗
+    if (host.includes('ipverseai.icareu.tw')) {
+      baseUrl = 'https://ip-verse-ai-mvp.mkhsu2002.workers.dev';
+    }
+
     const ipCharacterUrl = `${baseUrl}/ip-characters/default-mascot.png`;
 
-    // Generate composite image
+    // Generate composite image using mask Inpainting (Option A)
     const generatedBase64 = await generateCompositeImage(
       userPhoto,
       ipCharacterUrl,
-      scene.prompt
+      scene.prompt,
+      maskPhoto
     );
 
     // Return image as a data URL (no filesystem write needed)

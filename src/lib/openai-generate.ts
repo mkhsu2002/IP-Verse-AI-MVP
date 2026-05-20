@@ -18,7 +18,8 @@ function getOpenAIClient(): OpenAI {
 export async function generateCompositeImage(
   userPhotoBase64: string,
   ipCharacterUrl: string,
-  scenePrompt: string
+  scenePrompt: string,
+  maskPhotoBase64?: string
 ): Promise<string> {
   // Check if OpenAI API key is configured
   if (!process.env.OPENAI_API_KEY) {
@@ -29,56 +30,75 @@ export async function generateCompositeImage(
   }
 
   try {
-    // Fetch IP character image from public URL and convert to base64
-    const ipResponse = await fetch(ipCharacterUrl);
-    if (!ipResponse.ok) {
-      throw new Error(`Failed to fetch IP character image: ${ipResponse.status}`);
-    }
-    const ipArrayBuffer = await ipResponse.arrayBuffer();
-    const ipCharacterBase64 = Buffer.from(ipArrayBuffer).toString('base64');
-
     // Strip data URL prefix from user photo if present
     const userPhotoClean = userPhotoBase64.replace(
       /^data:image\/\w+;base64,/,
       ''
     );
 
+    // Highly detailed physical description of the specific 4 virtual anime idols to ensure consistency in generated images
+    const MASCOT_DESCRIPTION = 
+      "four cheerful anime virtual idols posing together: " +
+      "1) A handsome young man with short black hair, wearing a dark blue high school blazer uniform with a blue tie, laughing heartily. " +
+      "2) A cute young man with messy bright yellow/gold hair and beautiful blue-green eyes, wearing a pink puffy zip-up winter jacket over a grey inner shirt and white sports pants. " +
+      "3) A beautiful young girl with long flowing orange-brown/hazel hair, wearing a white and grey high-collar athletic track jacket and black sports shorts, smiling sweetly. " +
+      "4) An energetic girl with black hair, wearing a short-sleeve dark-blue button-up shirt and dark grey casual pants, waving her hand high into the air with a big cheerful smile. " +
+      "All four idols are friendly, vibrant, and welcoming the user to join them.";
+
+    // Inject the specific 4-idol description into the scene prompt by replacing generic terms
+    let customizedScenePrompt = scenePrompt;
+    customizedScenePrompt = customizedScenePrompt.replace(
+      /an anime-style virtual mascot/gi,
+      MASCOT_DESCRIPTION
+    );
+    customizedScenePrompt = customizedScenePrompt.replace(
+      /anime-style virtual mascot/gi,
+      MASCOT_DESCRIPTION
+    );
+
     const fullPrompt = `Create a high-quality anime illustration composite photo. 
     
-Scene: ${scenePrompt}
+Scene: ${customizedScenePrompt}
 
 Instructions:
-- Place the real person from the first reference image into the scene, preserving their actual facial features, hairstyle, skin tone, and body proportions accurately.
-- Place the anime virtual mascot character from the second reference image next to the person.
-- Both characters should be naturally interacting within the scene setting.
-- The art style should blend the realistic person smoothly into the anime-style environment.
+- Place the real person from the reference image into the scene, preserving their actual facial features, hairstyle, skin tone, and body proportions accurately.
+- Place the four specific virtual anime idols next to the person, standing or posing together in a friendly group.
+- There should be a total of 5 people (1 real person, and the 4 virtual idols) naturally interacting in this scene.
+- The art style should blend the realistic person smoothly into the beautiful anime-style environment.
 - Output a single cohesive illustration suitable for display on a large screen.
 - Do NOT include any brand logos, watermarks, text overlays, or real trademarks.
 - The image should be vibrant, high quality, and visually stunning.`;
 
-    console.log('🎨 Calling OpenAI gpt-image-2 via Images API...');
+    console.log('🎨 Calling OpenAI gpt-image-2 via Images API with exact 4-Idol injections...');
 
     // Use Images API with gpt-image-2
-    const userImageFile = createImageFile(userPhotoClean, 'user-photo.png');
+    const userImageFile = createImageFile(userPhotoClean, 'composite.png');
+    
+    let maskFile: File | undefined = undefined;
+    if (maskPhotoBase64) {
+      console.log('🎭 Mask detected! Activating Inpainting mode to preserve original virtual idols 100%...');
+      const maskClean = maskPhotoBase64.replace(/^data:image\/\w+;base64,/, '');
+      maskFile = createImageFile(maskClean, 'mask.png');
+    }
 
     const response = await getOpenAIClient().images.edit({
       model: 'gpt-image-2',
       image: userImageFile,
+      mask: maskFile,
       prompt: fullPrompt,
       n: 1,
-      size: '1536x1024' as '1024x1024',
-      quality: 'high' as 'low',
+      size: '1024x1024',
     });
 
     // Extract generated image
     if (response.data && response.data.length > 0) {
       const imageData = response.data[0];
       if (imageData.b64_json) {
-        console.log('✅ Image generated successfully via gpt-image-2');
+        console.log('✅ Image generated successfully via gpt-image-2 with 4-idols');
         return imageData.b64_json;
       }
       if (imageData.url) {
-        console.log('✅ Image generated (URL), fetching...');
+        console.log('✅ Image generated (URL) with 4-idols, fetching...');
         const imgResponse = await fetch(imageData.url);
         const imgBuffer = await imgResponse.arrayBuffer();
         return Buffer.from(imgBuffer).toString('base64');

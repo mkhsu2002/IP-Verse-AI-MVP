@@ -8,7 +8,112 @@ import GeneratingView from '@/components/kiosk/GeneratingView';
 import ResultDisplay from '@/components/kiosk/ResultDisplay';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { VerifySessionResponse, GenerateResponse } from '@/types';
-import { ERROR_RESET_SECONDS, COMPLETE_RESET_SECONDS } from '@/lib/constants';
+import { COMPLETE_RESET_SECONDS } from '@/lib/constants';
+
+/**
+ * 前端 Canvas 拼貼與遮罩產生器 (方案 A)
+ * 完美保留官方人物原汁原味，只讓 AI 重繪真人部分與擴展左右留白
+ */
+function generateCompositeAndMask(
+  userPhotoBase64: string,
+  mascotSrc: string
+): Promise<{ composite: string; mask: string }> {
+  return new Promise((resolve, reject) => {
+    const mascotImg = new Image();
+    const userImg = new Image();
+
+    let loadedCount = 0;
+    const checkLoaded = () => {
+      loadedCount++;
+      if (loadedCount === 2) {
+        try {
+          const size = 1024;
+          
+          // 1. 建立合成圖畫布
+          const compCanvas = document.createElement('canvas');
+          compCanvas.width = size;
+          compCanvas.height = size;
+          const compCtx = compCanvas.getContext('2d');
+          if (!compCtx) throw new Error('無法建立合成畫布上下文');
+
+          // 背景填滿淺灰色 (對 Inpainting 無影響，AI 會重新繪製透明區域)
+          compCtx.fillStyle = '#f3f4f6';
+          compCtx.fillRect(0, 0, size, size);
+
+          // 官方大圖原尺寸 681x1024，置中繪製
+          const mascotWidth = 681;
+          const mascotHeight = 1024;
+          const mascotX = (size - mascotWidth) / 2; // 171.5px 左右留白
+          const mascotY = 0;
+          compCtx.drawImage(mascotImg, mascotX, mascotY, mascotWidth, mascotHeight);
+
+          // 繪製使用者自拍照於右下角，並進行等比例裁切 (避免變形)
+          // 擺放尺寸：寬 340px，高 480px
+          const userW = 340;
+          const userH = 480;
+          const userX = size - userW; // 684px
+          const userY = size - userH; // 544px
+
+          const uw = userImg.width;
+          const uh = userImg.height;
+          const targetRatio = userW / userH; // 0.708
+
+          let sx = 0, sy = 0, sWidth = uw, sHeight = uh;
+          if (uw / uh > targetRatio) {
+            // 自拍照偏寬，以高度為準，水平居中裁切
+            sWidth = uh * targetRatio;
+            sx = (uw - sWidth) / 2;
+          } else {
+            // 自拍照偏窄，以寬度為準，垂直居中裁切
+            sHeight = uw / targetRatio;
+            sy = (uh - sHeight) / 2;
+          }
+
+          compCtx.drawImage(userImg, sx, sy, sWidth, sHeight, userX, userY, userW, userH);
+
+          // 2. 建立遮罩畫布 (Mask Canvas)
+          const maskCanvas = document.createElement('canvas');
+          maskCanvas.width = size;
+          maskCanvas.height = size;
+          const maskCtx = maskCanvas.getContext('2d');
+          if (!maskCtx) throw new Error('無法建立遮罩畫布上下文');
+
+          // 遮罩預設全黑 (Alpha = 255)，代表絕對保護，禁止 AI 修改
+          maskCtx.fillStyle = '#000000';
+          maskCtx.fillRect(0, 0, size, size);
+
+          // 將需要 AI 修改重繪的區域清除為透明 (Alpha = 0)
+          // 包含：左側留白、右側留白、以及使用者自拍照片所在的區塊
+          
+          // 清除左側留白區 (0 ~ mascotX)
+          maskCtx.clearRect(0, 0, mascotX, size);
+          
+          // 清除右側留白區 (mascotX + mascotWidth ~ 1024)
+          maskCtx.clearRect(mascotX + mascotWidth, 0, size - (mascotX + mascotWidth), size);
+
+          // 清除使用者自拍區
+          maskCtx.clearRect(userX, userY, userW, userH);
+
+          resolve({
+            composite: compCanvas.toDataURL('image/png'),
+            mask: maskCanvas.toDataURL('image/png'),
+          });
+        } catch (err) {
+          reject(err);
+        }
+      }
+    };
+
+    mascotImg.crossOrigin = 'anonymous'; // 防禦性 CORS 設定
+    mascotImg.onload = checkLoaded;
+    mascotImg.onerror = () => reject(new Error('官方吉祥物大圖載入失敗，請確認 /ip-characters/default-mascot.png 存在'));
+    mascotImg.src = mascotSrc;
+
+    userImg.onload = checkLoaded;
+    userImg.onerror = () => reject(new Error('自拍照載入失敗'));
+    userImg.src = userPhotoBase64;
+  });
+}
 
 export default function KioskPage() {
   const {
@@ -58,12 +163,20 @@ export default function KioskPage() {
       onPhotoCaptured(photoBase64);
 
       try {
+        console.log('🎨 開始在前端合成 IP 角色大合影與透明遮罩...');
+        const { composite, mask } = await generateCompositeAndMask(
+          photoBase64,
+          '/ip-characters/default-mascot.png'
+        );
+
+        console.log('🚀 前端合成完成！發送至後端進行 Inpainting 局部重繪...');
         const res = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sessionId: context.sessionId,
-            userPhoto: photoBase64,
+            userPhoto: composite, // 發送合成底圖
+            maskPhoto: mask,      // 發送透明遮罩圖
           }),
         });
 
@@ -76,8 +189,10 @@ export default function KioskPage() {
         } else {
           onGenerateError(data.error || '圖片生成失敗');
         }
-      } catch {
-        onGenerateError('網路連線錯誤，請稍後再試');
+      } catch (error) {
+        onGenerateError(
+          error instanceof Error ? error.message : '網路連線錯誤，請稍後再試'
+        );
       }
     },
     [
@@ -89,23 +204,10 @@ export default function KioskPage() {
     ]
   );
 
-  // Reset countdown for COMPLETE and ERROR states
+  // Reset countdown for COMPLETE state
   useEffect(() => {
     if (context.state === 'COMPLETE') {
       setResetCountdown(COMPLETE_RESET_SECONDS);
-      const interval = setInterval(() => {
-        setResetCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-    if (context.state === 'ERROR') {
-      setResetCountdown(ERROR_RESET_SECONDS);
       const interval = setInterval(() => {
         setResetCountdown((prev) => {
           if (prev <= 1) {
@@ -214,16 +316,14 @@ export default function KioskPage() {
             <p className="text-xl text-red-400/80 max-w-md text-center">
               {context.error || '未知錯誤'}
             </p>
-            <p className="text-white/30 mt-4">
-              {resetCountdown > 0
-                ? `${resetCountdown} 秒後自動重新開始`
-                : '正在重新開始...'}
+            <p className="text-white/30 mt-4 animate-pulse">
+              請點擊下方按鈕以重新開始體驗
             </p>
             <button
               onClick={reset}
-              className="mt-4 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 transition-all"
+              className="mt-4 px-8 py-3.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 active:scale-95 text-white font-bold rounded-xl shadow-lg transition-all cursor-pointer"
             >
-              立即重新開始
+              📸 重新開始拍攝
             </button>
           </div>
         );
