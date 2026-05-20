@@ -44,17 +44,19 @@ export default function HomePage() {
           {/* Join - Mobile */}
           <Link
             href="/join"
+            target="_blank"
+            rel="noopener noreferrer"
             className="group block bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl transition-all duration-300 hover:translate-y-[-4px] hover:shadow-2xl hover:border-purple-500/30 hover:bg-white/10"
           >
             <div className="text-4xl mb-4">📱</div>
             <h2 className="text-2xl font-semibold text-white mb-2 font-[family-name:var(--font-outfit)]">
-              參加者入口
+              參加者入口 <span className="text-xs text-white/40 font-normal">(另開新分頁)</span>
             </h2>
             <p className="text-white/50 text-sm">
               使用手機輸入 Email，取得專屬 QR Code
             </p>
             <div className="mt-4 text-purple-400 text-sm group-hover:text-purple-300 transition-colors">
-              前往 /join →
+              前往 /join (新分頁) →
             </div>
           </Link>
 
@@ -77,9 +79,10 @@ export default function HomePage() {
         </div>
 
         {/* Footer */}
-        <p className="text-white/20 text-xs mt-16">
-          IP Verse AI MVP — Demo Version
-        </p>
+        <div className="text-white/20 text-xs mt-16 space-y-1">
+          <p>IP Verse AI MVP — Demo Version</p>
+          <p>© 2026 FlyPig AI -艾可開發股份有限公司. All rights reserved.</p>
+        </div>
       </div>
     </main>
   );

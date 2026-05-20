@@ -133,6 +133,15 @@ export default function KioskPage() {
             <p className="text-white/30 animate-pulse text-lg mt-4">
               即將啟動掃描...
             </p>
+            {/* Quick Link to Join Page for easy setup */}
+            <a
+              href="/join"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/10 hover:border-purple-500/30 rounded-xl text-white font-medium transition-all duration-300 shadow-lg cursor-pointer text-sm"
+            >
+              📱 另開新視窗前往手機加入頁面 (/join)
+            </a>
           </div>
         );
 
@@ -185,7 +194,7 @@ export default function KioskPage() {
               <ResultDisplay
                 imageUrl={context.generatedImageUrl}
                 sceneName={context.scene || ''}
-                resetCountdown={resetCountdown}
+                onReset={reset}
               />
             ) : (
               <div className="w-full h-screen flex items-center justify-center bg-gradient-animated">

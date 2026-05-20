@@ -168,20 +168,9 @@ export function useKioskStateMachine(): UseKioskStateMachine {
     }
   }, [context.state]);
 
-  // Auto-reset from COMPLETE
-  useEffect(() => {
-    if (context.state === 'COMPLETE') {
-      resetTimerRef.current = setTimeout(() => {
-        dispatch({ type: 'RESET' });
-      }, COMPLETE_RESET_SECONDS * 1000);
-      return () => {
-        if (resetTimerRef.current) {
-          clearTimeout(resetTimerRef.current);
-          resetTimerRef.current = null;
-        }
-      };
-    }
-  }, [context.state]);
+  // Auto-reset from COMPLETE is disabled to allow the user to manually click restart
+  // Auto-reset from ERROR remains enabled for kiosk stability
+  // COMPLETE state now stays on screen permanently until manual reset
 
   // Cleanup on unmount
   useEffect(() => {

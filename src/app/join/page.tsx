@@ -101,9 +101,10 @@ export default function JoinPage() {
         </Card>
 
         {/* Footer note */}
-        <p className="text-center text-white/20 text-xs">
-          您的資料僅用於此次體驗活動，不會用於其他用途。
-        </p>
+        <div className="text-center text-white/20 text-xs space-y-1">
+          <p>您的資料僅用於此次體驗活動，不會用於其他用途。</p>
+          <p>© 2026 FlyPig AI -艾可開發股份有限公司. All rights reserved.</p>
+        </div>
       </div>
     </main>
   );
