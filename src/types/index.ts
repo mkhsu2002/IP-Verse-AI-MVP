@@ -10,6 +10,7 @@ export interface Session {
   expiresAt: string;
   scene?: string;
   generatedImageUrl?: string;
+  emailSent?: boolean;
 }
 
 export interface CreateSessionRequest {
@@ -38,13 +39,16 @@ export interface VerifySessionResponse {
 
 export interface GenerateRequest {
   sessionId: string;
-  userPhoto: string; // base64 data URL
+  userPhoto: string; // composited 1024x1024 base64 data URL
+  userReferencePhoto?: string; // original camera photo base64 data URL
+  maskPhoto?: string; // 1024x1024 PNG mask data URL
 }
 
 export interface GenerateResponse {
   success: boolean;
   imageUrl?: string;
   scene?: string;
+  emailSent?: boolean;
   error?: string;
 }
 
@@ -68,6 +72,7 @@ export interface KioskContext {
   userPhoto: string | null;
   generatedImageUrl: string | null;
   scene: string | null;
+  emailSent: boolean | null;
   error: string | null;
   countdown: number;
 }

@@ -5,12 +5,14 @@ import React from 'react';
 interface ResultDisplayProps {
   imageUrl: string;
   sceneName: string;
+  emailSent: boolean | null;
   onReset: () => void;
 }
 
 export default function ResultDisplay({
   imageUrl,
   sceneName,
+  emailSent,
   onReset,
 }: ResultDisplayProps) {
   return (
@@ -33,9 +35,15 @@ export default function ResultDisplay({
 
         {/* Status messages & Action Button */}
         <div className="text-center space-y-6">
-          <p className="text-xl text-white/90 font-medium">
-            📧 照片已寄送至您的信箱
-          </p>
+          {emailSent === false ? (
+            <p className="text-xl text-yellow-300 font-medium">
+              圖片已完成，但 Email 寄送尚未成功
+            </p>
+          ) : (
+            <p className="text-xl text-white/90 font-medium">
+              照片已寄送至您的信箱
+            </p>
+          )}
           <button
             onClick={onReset}
             className="px-8 py-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 rounded-2xl text-white text-lg font-semibold shadow-xl shadow-purple-500/20 border border-white/20 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"

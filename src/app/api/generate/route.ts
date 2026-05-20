@@ -4,24 +4,45 @@ import { generateCompositeImage } from '@/lib/openai-generate';
 import { sendGeneratedImage } from '@/lib/email-sender';
 import { getRandomScene } from '@/lib/scenes';
 import type { GenerateRequest, GenerateResponse } from '@/types';
-import { headers } from 'next/headers';
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as any;
-    const { sessionId, userPhoto, maskPhoto } = body;
+    const body = await request.json();
+
+    if (!isGenerateRequest(body)) {
+      return NextResponse.json<GenerateResponse>(
+        { success: false, error: '請提供完整的生成資料' },
+        { status: 400 }
+      );
+    }
+
+    const { sessionId, userPhoto, userReferencePhoto, maskPhoto } = body;
 
     // Validate inputs
-    if (!sessionId || typeof sessionId !== 'string') {
+    if (!sessionId.trim()) {
       return NextResponse.json<GenerateResponse>(
         { success: false, error: '缺少 Session ID' },
         { status: 400 }
       );
     }
 
-    if (!userPhoto || typeof userPhoto !== 'string') {
+    if (!isSupportedImageDataUrl(userPhoto)) {
       return NextResponse.json<GenerateResponse>(
-        { success: false, error: '缺少使用者照片' },
+        { success: false, error: '使用者照片格式無效' },
+        { status: 400 }
+      );
+    }
+
+    if (userReferencePhoto && !isSupportedImageDataUrl(userReferencePhoto)) {
+      return NextResponse.json<GenerateResponse>(
+        { success: false, error: '自拍參考照片格式無效' },
+        { status: 400 }
+      );
+    }
+
+    if (maskPhoto && !isSupportedImageDataUrl(maskPhoto)) {
+      return NextResponse.json<GenerateResponse>(
+        { success: false, error: '遮罩圖片格式無效' },
         { status: 400 }
       );
     }
@@ -46,48 +67,37 @@ export async function POST(request: Request) {
     // Select random scene
     const scene = getRandomScene();
 
-    // Build absolute URL for the IP character image
-    const headersList = await headers();
-    const host = headersList.get('host') || 'localhost:3000';
-    const protocol = headersList.get('x-forwarded-proto') || 'http';
-    let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
-
-    // 如果 host 是自訂網域，則強制改為原生 workers.dev 域名，避免 Cloudflare CDN-Loop Protection 導致 fetch 失敗
-    if (host.includes('ipverseai.icareu.tw')) {
-      baseUrl = 'https://ip-verse-ai-mvp.mkhsu2002.workers.dev';
-    }
-
-    const ipCharacterUrl = `${baseUrl}/ip-characters/default-mascot.png`;
-
-    // Generate composite image using mask Inpainting (Option A)
-    const generatedBase64 = await generateCompositeImage(
-      userPhoto,
-      ipCharacterUrl,
-      scene.prompt,
-      maskPhoto
-    );
+    // Generate composite image using Image 1 as masked layout and Image 2 as user identity reference.
+    const generatedBase64 = await generateCompositeImage({
+      targetImageBase64: userPhoto,
+      userReferencePhotoBase64: userReferencePhoto,
+      maskPhotoBase64: maskPhoto,
+      scenePrompt: scene.prompt,
+      sessionId,
+    });
 
     // Return image as a data URL (no filesystem write needed)
     const imageUrl = `data:image/png;base64,${generatedBase64}`;
+
+    const emailSent = await sendGeneratedImage(
+      session.email,
+      generatedBase64,
+      scene.name
+    );
 
     // Update session
     updateSession(sessionId, {
       status: 'completed',
       scene: scene.name,
       generatedImageUrl: imageUrl,
+      emailSent,
     });
-
-    // Send email in background (don't block response)
-    sendGeneratedImage(session.email, generatedBase64, scene.name).catch(
-      (err) => {
-        console.error('Background email sending failed:', err);
-      }
-    );
 
     return NextResponse.json<GenerateResponse>({
       success: true,
       imageUrl,
       scene: scene.name,
+      emailSent,
     });
   } catch (error) {
     console.error('Generate error:', error);
@@ -101,4 +111,21 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+function isGenerateRequest(value: unknown): value is GenerateRequest {
+  if (!value || typeof value !== 'object') return false;
+
+  const candidate = value as Partial<Record<keyof GenerateRequest, unknown>>;
+  return (
+    typeof candidate.sessionId === 'string' &&
+    typeof candidate.userPhoto === 'string' &&
+    (candidate.userReferencePhoto === undefined ||
+      typeof candidate.userReferencePhoto === 'string') &&
+    (candidate.maskPhoto === undefined || typeof candidate.maskPhoto === 'string')
+  );
+}
+
+function isSupportedImageDataUrl(value: string): boolean {
+  return /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=\s]+$/i.test(value);
 }

@@ -13,6 +13,16 @@ const PROGRESS_MESSAGES = [
   '最後潤飾中...',
 ];
 
+const PARTICLES = Array.from({ length: 20 }).map((_, i) => ({
+  left: `${(i * 37) % 100}%`,
+  top: `${(i * 53 + 11) % 100}%`,
+  animationDelay: `${(i % 12) * 0.5}s`,
+  animationDuration: `${4 + (i % 5) * 0.7}s`,
+  width: `${2 + (i % 4)}px`,
+  height: `${2 + (i % 4)}px`,
+  opacity: 0.2 + (i % 4) * 0.08,
+}));
+
 export default function GeneratingView({ sceneName }: GeneratingViewProps) {
   const [messageIndex, setMessageIndex] = useState(0);
 
@@ -28,19 +38,11 @@ export default function GeneratingView({ sceneName }: GeneratingViewProps) {
     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-animated">
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {Array.from({ length: 20 }).map((_, i) => (
+        {PARTICLES.map((particle, i) => (
           <div
             key={i}
             className="particle"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 6}s`,
-              animationDuration: `${4 + Math.random() * 4}s`,
-              width: `${2 + Math.random() * 4}px`,
-              height: `${2 + Math.random() * 4}px`,
-              opacity: 0.2 + Math.random() * 0.3,
-            }}
+            style={particle}
           />
         ))}
       </div>

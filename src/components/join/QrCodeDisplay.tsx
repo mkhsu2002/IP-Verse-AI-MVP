@@ -8,19 +8,23 @@ interface QrCodeDisplayProps {
   expiresAt: string;
 }
 
+function getSecondsLeft(expiresAt: string): number {
+  const now = new Date().getTime();
+  const expiry = new Date(expiresAt).getTime();
+  return Math.max(0, Math.floor((expiry - now) / 1000));
+}
+
 export default function QrCodeDisplay({
   token,
   expiresAt,
 }: QrCodeDisplayProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [timeLeft, setTimeLeft] = useState<number>(0);
-  const [expired, setExpired] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number>(() =>
+    getSecondsLeft(expiresAt)
+  );
 
   const calculateTimeLeft = useCallback(() => {
-    const now = new Date().getTime();
-    const expiry = new Date(expiresAt).getTime();
-    const diff = Math.max(0, Math.floor((expiry - now) / 1000));
-    return diff;
+    return getSecondsLeft(expiresAt);
   }, [expiresAt]);
 
   // Generate QR Code
@@ -46,13 +50,10 @@ export default function QrCodeDisplay({
 
   // Countdown timer
   useEffect(() => {
-    setTimeLeft(calculateTimeLeft());
-
     const interval = setInterval(() => {
       const remaining = calculateTimeLeft();
       setTimeLeft(remaining);
       if (remaining <= 0) {
-        setExpired(true);
         clearInterval(interval);
       }
     }, 1000);
@@ -66,7 +67,7 @@ export default function QrCodeDisplay({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (expired) {
+  if (timeLeft <= 0) {
     return (
       <div className="text-center space-y-4 fade-in">
         <div className="text-6xl mb-4">⏰</div>

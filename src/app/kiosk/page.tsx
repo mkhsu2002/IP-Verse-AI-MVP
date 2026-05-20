@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import { useKioskStateMachine } from '@/hooks/useKioskStateMachine';
 import QrScanner from '@/components/kiosk/QrScanner';
 import CameraCapture from '@/components/kiosk/CameraCapture';
@@ -8,7 +8,6 @@ import GeneratingView from '@/components/kiosk/GeneratingView';
 import ResultDisplay from '@/components/kiosk/ResultDisplay';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { VerifySessionResponse, GenerateResponse } from '@/types';
-import { COMPLETE_RESET_SECONDS } from '@/lib/constants';
 
 /**
  * 前端 Canvas 拼貼與遮罩產生器 (方案 A)
@@ -118,6 +117,7 @@ function generateCompositeAndMask(
 export default function KioskPage() {
   const {
     context,
+    startScanning,
     onQrScanned,
     onSessionVerified,
     onSessionError,
@@ -128,8 +128,6 @@ export default function KioskPage() {
     onEmailFailed,
     reset,
   } = useKioskStateMachine();
-
-  const [resetCountdown, setResetCountdown] = useState(0);
 
   // Handle QR Code scanned → verify session
   const handleQrScanned = useCallback(
@@ -177,6 +175,7 @@ export default function KioskPage() {
             sessionId: context.sessionId,
             userPhoto: composite, // 發送合成底圖
             maskPhoto: mask,      // 發送透明遮罩圖
+            userReferencePhoto: photoBase64, // 另外提供原始自拍，避免 AI 換臉或換人
           }),
         });
 
@@ -184,8 +183,11 @@ export default function KioskPage() {
 
         if (data.success && data.imageUrl && data.scene) {
           onImageGenerated(data.imageUrl, data.scene);
-          // Email is sent in background by the API
-          onEmailSent();
+          if (data.emailSent) {
+            onEmailSent();
+          } else {
+            onEmailFailed();
+          }
         } else {
           onGenerateError(data.error || '圖片生成失敗');
         }
@@ -201,25 +203,9 @@ export default function KioskPage() {
       onImageGenerated,
       onGenerateError,
       onEmailSent,
+      onEmailFailed,
     ]
   );
-
-  // Reset countdown for COMPLETE state
-  useEffect(() => {
-    if (context.state === 'COMPLETE') {
-      setResetCountdown(COMPLETE_RESET_SECONDS);
-      const interval = setInterval(() => {
-        setResetCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [context.state]);
 
   // --- Render based on state ---
   const renderState = () => {
@@ -233,8 +219,14 @@ export default function KioskPage() {
             </h1>
             <p className="text-2xl text-white/50">互動式 AI 合照體驗</p>
             <p className="text-white/30 animate-pulse text-lg mt-4">
-              即將啟動掃描...
+              請按下按鈕啟動掃描
             </p>
+            <button
+              onClick={startScanning}
+              className="mt-2 px-8 py-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 active:scale-95 text-white text-lg font-bold rounded-xl shadow-xl transition-all cursor-pointer"
+            >
+              開始掃描 QR Code
+            </button>
             {/* Quick Link to Join Page for easy setup */}
             <a
               href="/join"
@@ -296,6 +288,7 @@ export default function KioskPage() {
               <ResultDisplay
                 imageUrl={context.generatedImageUrl}
                 sceneName={context.scene || ''}
+                emailSent={context.emailSent}
                 onReset={reset}
               />
             ) : (
@@ -334,7 +327,13 @@ export default function KioskPage() {
   };
 
   return (
-    <main className="w-full h-screen overflow-hidden cursor-none select-none">
+    <main
+      className={`w-full h-screen overflow-hidden select-none ${
+        context.state === 'IDLE' || context.state === 'ERROR'
+          ? 'cursor-auto'
+          : 'cursor-none'
+      }`}
+    >
       {renderState()}
 
       {/* Debug state indicator (development only) */}

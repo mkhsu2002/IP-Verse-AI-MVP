@@ -1,5 +1,13 @@
 import OpenAI from 'openai';
 
+interface GenerateCompositeImageInput {
+  targetImageBase64: string;
+  userReferencePhotoBase64?: string;
+  maskPhotoBase64?: string;
+  scenePrompt: string;
+  sessionId?: string;
+}
+
 function getOpenAIClient(): OpenAI {
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -10,17 +18,18 @@ function getOpenAIClient(): OpenAI {
  * Generate a composite image using OpenAI GPT-Image-2 via Images API.
  * Edge-compatible: no fs dependency — reads IP character from public URL.
  *
- * @param userPhotoBase64 - Base64 data URL of the user's photo
- * @param ipCharacterUrl - URL to the IP character image (public asset)
+ * @param targetImageBase64 - Base64 data URL of the composited layout image
+ * @param userReferencePhotoBase64 - Original camera photo used as identity reference
  * @param scenePrompt - Text prompt describing the scene
  * @returns Base64 string of the generated image
  */
-export async function generateCompositeImage(
-  userPhotoBase64: string,
-  ipCharacterUrl: string,
-  scenePrompt: string,
-  maskPhotoBase64?: string
-): Promise<string> {
+export async function generateCompositeImage({
+  targetImageBase64,
+  userReferencePhotoBase64,
+  maskPhotoBase64,
+  scenePrompt,
+  sessionId,
+}: GenerateCompositeImageInput): Promise<string> {
   // Check if OpenAI API key is configured
   if (!process.env.OPENAI_API_KEY) {
     console.warn(
@@ -30,12 +39,6 @@ export async function generateCompositeImage(
   }
 
   try {
-    // Strip data URL prefix from user photo if present
-    const userPhotoClean = userPhotoBase64.replace(
-      /^data:image\/\w+;base64,/,
-      ''
-    );
-
     // Highly detailed physical description of the specific 4 virtual anime idols to ensure consistency in generated images
     const MASCOT_DESCRIPTION = 
       "four cheerful anime virtual idols posing together: " +
@@ -56,49 +59,61 @@ export async function generateCompositeImage(
       MASCOT_DESCRIPTION
     );
 
-    const fullPrompt = `Create a high-quality anime illustration composite photo. 
+    const fullPrompt = `Create a high-quality anime illustration composite photo.
     
 Scene: ${customizedScenePrompt}
 
+Input images:
+- Image 1 is the target layout. It contains the official four virtual idols and a rough placement for the real guest.
+- Image 2, when provided, is the original camera photo of the real guest and is the primary identity reference.
+
 Instructions:
-- Place the real person from the reference image into the scene, preserving their actual facial features, hairstyle, skin tone, and body proportions accurately.
-- Place the four specific virtual anime idols next to the person, standing or posing together in a friendly group.
-- There should be a total of 5 people (1 real person, and the 4 virtual idols) naturally interacting in this scene.
+- Preserve the real guest from Image 2 as the same person: keep their facial identity, hairstyle, skin tone, expression, body proportions, and visible clothing cues as faithfully as possible.
+- Use the editable masked area of Image 1 to integrate the real guest naturally into the illustration instead of inventing a different person.
+- Preserve the four official virtual anime idols already visible in Image 1. Do not redesign, replace, or remove them.
+- There should be a total of 5 people: 1 real guest and the 4 virtual idols, naturally interacting in this scene.
 - The art style should blend the realistic person smoothly into the beautiful anime-style environment.
 - Output a single cohesive illustration suitable for display on a large screen.
 - Do NOT include any brand logos, watermarks, text overlays, or real trademarks.
 - The image should be vibrant, high quality, and visually stunning.`;
 
-    console.log('🎨 Calling OpenAI gpt-image-2 via Images API with exact 4-Idol injections...');
+    console.log('🎨 Calling OpenAI gpt-image-2 with layout + user identity reference...');
 
-    // Use Images API with gpt-image-2
-    const userImageFile = createImageFile(userPhotoClean, 'composite.png');
+    const targetImageFile = createImageFile(targetImageBase64, '01-target-layout.png');
+    const inputImages: File[] = [targetImageFile];
+
+    if (userReferencePhotoBase64) {
+      inputImages.push(createImageFile(userReferencePhotoBase64, '02-user-identity-reference.jpg'));
+    }
     
     let maskFile: File | undefined = undefined;
     if (maskPhotoBase64) {
-      console.log('🎭 Mask detected! Activating Inpainting mode to preserve original virtual idols 100%...');
-      const maskClean = maskPhotoBase64.replace(/^data:image\/\w+;base64,/, '');
-      maskFile = createImageFile(maskClean, 'mask.png');
+      console.log('🎭 Mask detected. Applying it to Image 1 while using Image 2 for identity reference...');
+      maskFile = createImageFile(maskPhotoBase64, 'mask.png');
     }
 
     const response = await getOpenAIClient().images.edit({
       model: 'gpt-image-2',
-      image: userImageFile,
+      image: inputImages,
       mask: maskFile,
       prompt: fullPrompt,
+      input_fidelity: 'high',
       n: 1,
+      quality: 'high',
+      output_format: 'png',
       size: '1024x1024',
+      user: sessionId,
     });
 
     // Extract generated image
     if (response.data && response.data.length > 0) {
       const imageData = response.data[0];
       if (imageData.b64_json) {
-        console.log('✅ Image generated successfully via gpt-image-2 with 4-idols');
+        console.log('✅ Image generated successfully via gpt-image-2 with preserved user reference');
         return imageData.b64_json;
       }
       if (imageData.url) {
-        console.log('✅ Image generated (URL) with 4-idols, fetching...');
+        console.log('✅ Image generated (URL), fetching...');
         const imgResponse = await fetch(imageData.url);
         const imgBuffer = await imgResponse.arrayBuffer();
         return Buffer.from(imgBuffer).toString('base64');
@@ -118,10 +133,29 @@ Instructions:
 /**
  * Create a File object from base64 string for the OpenAI API.
  */
-function createImageFile(base64Data: string, filename: string): File {
-  const buffer = Buffer.from(base64Data, 'base64');
-  const blob = new Blob([buffer], { type: 'image/png' });
-  return new File([blob], filename, { type: 'image/png' });
+function createImageFile(dataUrlOrBase64: string, filename: string): File {
+  const parsed = parseImageData(dataUrlOrBase64);
+  const buffer = Buffer.from(parsed.base64, 'base64');
+  const blob = new Blob([buffer], { type: parsed.mimeType });
+  return new File([blob], filename, { type: parsed.mimeType });
+}
+
+function parseImageData(dataUrlOrBase64: string): {
+  base64: string;
+  mimeType: string;
+} {
+  const match = dataUrlOrBase64.match(/^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/i);
+  if (!match) {
+    return {
+      base64: dataUrlOrBase64,
+      mimeType: 'image/png',
+    };
+  }
+
+  return {
+    mimeType: match[1].toLowerCase().replace('image/jpg', 'image/jpeg'),
+    base64: match[2],
+  };
 }
 
 /**

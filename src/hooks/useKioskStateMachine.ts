@@ -1,12 +1,8 @@
 'use client';
 
 import { useReducer, useCallback, useRef, useEffect } from 'react';
-import type { KioskState, KioskContext } from '@/types';
-import {
-  COUNTDOWN_SECONDS,
-  ERROR_RESET_SECONDS,
-  COMPLETE_RESET_SECONDS,
-} from '@/lib/constants';
+import type { KioskContext } from '@/types';
+import { COUNTDOWN_SECONDS } from '@/lib/constants';
 
 // --- Action Types ---
 type KioskAction =
@@ -31,6 +27,7 @@ const initialContext: KioskContext = {
   userPhoto: null,
   generatedImageUrl: null,
   scene: null,
+  emailSent: null,
   error: null,
   countdown: COUNTDOWN_SECONDS,
 };
@@ -84,8 +81,10 @@ function kioskReducer(
       return { ...context, state: 'ERROR', error: action.error };
 
     case 'EMAIL_SENT':
+      return { ...context, state: 'COMPLETE', emailSent: true };
+
     case 'EMAIL_FAILED':
-      return { ...context, state: 'COMPLETE' };
+      return { ...context, state: 'COMPLETE', emailSent: false };
 
     case 'RESET':
       return { ...initialContext, state: 'IDLE' };
@@ -128,15 +127,8 @@ export function useKioskStateMachine(): UseKioskStateMachine {
     }
   }, []);
 
-  // Auto-start scanning from IDLE
-  useEffect(() => {
-    if (context.state === 'IDLE') {
-      const timer = setTimeout(() => {
-        dispatch({ type: 'START_SCANNING' });
-      }, 2000); // Brief pause at IDLE before scanning
-      return () => clearTimeout(timer);
-    }
-  }, [context.state]);
+  // Auto-start scanning from IDLE is disabled.
+  // The system will now stay in IDLE state until the user clicks the explicit start button.
 
   // Countdown timer
   useEffect(() => {
@@ -153,20 +145,8 @@ export function useKioskStateMachine(): UseKioskStateMachine {
     }
   }, [context.state]);
 
-  // Auto-reset from ERROR
-  useEffect(() => {
-    if (context.state === 'ERROR') {
-      resetTimerRef.current = setTimeout(() => {
-        dispatch({ type: 'RESET' });
-      }, ERROR_RESET_SECONDS * 1000);
-      return () => {
-        if (resetTimerRef.current) {
-          clearTimeout(resetTimerRef.current);
-          resetTimerRef.current = null;
-        }
-      };
-    }
-  }, [context.state]);
+  // Auto-reset from ERROR has been disabled to allow host/developers to see precise API error messages.
+  // The system will now remain in the ERROR state indefinitely until the user manually clicks the 'Restart Now' button.
 
   // Auto-reset from COMPLETE is disabled to allow the user to manually click restart
   // Auto-reset from ERROR remains enabled for kiosk stability
