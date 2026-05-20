@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     // Return image as a data URL (no filesystem write needed)
     const imageUrl = `data:image/png;base64,${generatedBase64}`;
 
-    const emailSent = await sendGeneratedImage(
+    const emailResult = await sendGeneratedImage(
       session.email,
       generatedBase64,
       scene.name
@@ -90,14 +90,15 @@ export async function POST(request: Request) {
       status: 'completed',
       scene: scene.name,
       generatedImageUrl: imageUrl,
-      emailSent,
+      emailSent: emailResult.sent,
     });
 
     return NextResponse.json<GenerateResponse>({
       success: true,
       imageUrl,
       scene: scene.name,
-      emailSent,
+      emailSent: emailResult.sent,
+      emailError: emailResult.error,
     });
   } catch (error) {
     console.error('Generate error:', error);

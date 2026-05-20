@@ -15,7 +15,7 @@ type KioskAction =
   | { type: 'IMAGE_GENERATED'; imageUrl: string; scene: string }
   | { type: 'GENERATE_ERROR'; error: string }
   | { type: 'EMAIL_SENT' }
-  | { type: 'EMAIL_FAILED' }
+  | { type: 'EMAIL_FAILED'; error?: string }
   | { type: 'RESET' };
 
 // --- Initial State ---
@@ -28,6 +28,7 @@ const initialContext: KioskContext = {
   generatedImageUrl: null,
   scene: null,
   emailSent: null,
+  emailError: null,
   error: null,
   countdown: COUNTDOWN_SECONDS,
 };
@@ -81,10 +82,15 @@ function kioskReducer(
       return { ...context, state: 'ERROR', error: action.error };
 
     case 'EMAIL_SENT':
-      return { ...context, state: 'COMPLETE', emailSent: true };
+      return { ...context, state: 'COMPLETE', emailSent: true, emailError: null };
 
     case 'EMAIL_FAILED':
-      return { ...context, state: 'COMPLETE', emailSent: false };
+      return {
+        ...context,
+        state: 'COMPLETE',
+        emailSent: false,
+        emailError: action.error || 'Email 寄送失敗',
+      };
 
     case 'RESET':
       return { ...initialContext, state: 'IDLE' };
@@ -106,7 +112,7 @@ export interface UseKioskStateMachine {
   onImageGenerated: (imageUrl: string, scene: string) => void;
   onGenerateError: (error: string) => void;
   onEmailSent: () => void;
-  onEmailFailed: () => void;
+  onEmailFailed: (error?: string) => void;
   reset: () => void;
 }
 
@@ -197,8 +203,8 @@ export function useKioskStateMachine(): UseKioskStateMachine {
     dispatch({ type: 'EMAIL_SENT' });
   }, []);
 
-  const onEmailFailed = useCallback(() => {
-    dispatch({ type: 'EMAIL_FAILED' });
+  const onEmailFailed = useCallback((error?: string) => {
+    dispatch({ type: 'EMAIL_FAILED', error });
   }, []);
 
   const reset = useCallback(() => {

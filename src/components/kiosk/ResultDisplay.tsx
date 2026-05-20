@@ -6,6 +6,7 @@ interface ResultDisplayProps {
   imageUrl: string;
   sceneName: string;
   emailSent: boolean | null;
+  emailError: string | null;
   onReset: () => void;
 }
 
@@ -13,6 +14,7 @@ export default function ResultDisplay({
   imageUrl,
   sceneName,
   emailSent,
+  emailError,
   onReset,
 }: ResultDisplayProps) {
   return (
@@ -36,9 +38,16 @@ export default function ResultDisplay({
         {/* Status messages & Action Button */}
         <div className="text-center space-y-6">
           {emailSent === false ? (
-            <p className="text-xl text-yellow-300 font-medium">
-              圖片已完成，但 Email 寄送尚未成功
-            </p>
+            <div className="space-y-2">
+              <p className="text-xl text-yellow-300 font-medium">
+                圖片已完成，但 Email 寄送尚未成功
+              </p>
+              {emailError && (
+                <p className="max-w-xl text-sm text-yellow-100/70">
+                  {emailError}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="text-xl text-white/90 font-medium">
               照片已寄送至您的信箱

@@ -64,15 +64,16 @@ export async function generateCompositeImage({
 Scene: ${customizedScenePrompt}
 
 Input images:
-- Image 1 is the target layout. It contains the official four virtual idols and a rough placement for the real guest.
+- Image 1 is the target layout. It contains the official four virtual idols and the real guest placed in protected areas.
 - Image 2, when provided, is the original camera photo of the real guest and is the primary identity reference.
 
 Instructions:
-- Preserve the real guest from Image 2 as the same person: keep their facial identity, hairstyle, skin tone, expression, body proportions, and visible clothing cues as faithfully as possible.
-- Use the editable masked area of Image 1 to integrate the real guest naturally into the illustration instead of inventing a different person.
+- Keep the protected pixels from Image 1 unchanged, especially the real guest's face/body and the four official virtual idols.
+- Use Image 2 to verify the guest identity if any visible blending is needed around the protected area. Do not invent, replace, or redraw the guest as a different person.
+- Use only the transparent mask areas to create the scene background, lighting, atmosphere, and soft visual integration around the protected guest and idols.
 - Preserve the four official virtual anime idols already visible in Image 1. Do not redesign, replace, or remove them.
 - There should be a total of 5 people: 1 real guest and the 4 virtual idols, naturally interacting in this scene.
-- The art style should blend the realistic person smoothly into the beautiful anime-style environment.
+- The output may blend a real photographed guest with an anime-style environment, but the guest must remain recognizably the same person from the camera photo.
 - Output a single cohesive illustration suitable for display on a large screen.
 - Do NOT include any brand logos, watermarks, text overlays, or real trademarks.
 - The image should be vibrant, high quality, and visually stunning.`;
@@ -101,7 +102,7 @@ Instructions:
       n: 1,
       quality: 'high',
       output_format: 'png',
-      size: '1024x1024',
+      size: '1536x1024',
       user: sessionId,
     });
 

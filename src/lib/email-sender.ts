@@ -1,5 +1,10 @@
 import { Resend } from 'resend';
 
+export interface EmailSendResult {
+  sent: boolean;
+  error?: string;
+}
+
 /**
  * Send the generated composite image to the user's email.
  *
@@ -12,12 +17,11 @@ export async function sendGeneratedImage(
   email: string,
   imageBase64: string,
   sceneName: string
-): Promise<boolean> {
+): Promise<EmailSendResult> {
   if (!process.env.RESEND_API_KEY) {
-    console.warn(
-      '⚠️ RESEND_API_KEY not set. Skipping email delivery.'
-    );
-    return false;
+    const error = 'RESEND_API_KEY is not configured';
+    console.warn(`⚠️ ${error}. Skipping email delivery.`);
+    return { sent: false, error };
   }
 
   const fromEmail =
@@ -29,7 +33,7 @@ export async function sendGeneratedImage(
     // Convert base64 to Buffer for attachment
     const imageBuffer = Buffer.from(imageBase64, 'base64');
 
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: fromEmail,
       to: email,
       subject: `進入虛擬偶像的世界｜${sceneName}`,
@@ -72,10 +76,21 @@ export async function sendGeneratedImage(
       ],
     });
 
-    console.log(`✅ Email sent to ${email} (scene: ${sceneName})`);
-    return true;
+    if (result.error) {
+      const errorMessage =
+        result.error.message || result.error.name || 'Resend API returned an error';
+      console.error('Email sending failed:', result.error);
+      return { sent: false, error: errorMessage };
+    }
+
+    console.log(
+      `✅ Email sent to ${email} (scene: ${sceneName}, id: ${result.data?.id || 'unknown'})`
+    );
+    return { sent: true };
   } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown email delivery error';
     console.error('Email sending failed:', error);
-    return false;
+    return { sent: false, error: errorMessage };
   }
 }

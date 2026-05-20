@@ -26,36 +26,38 @@ function generateCompositeAndMask(
       loadedCount++;
       if (loadedCount === 2) {
         try {
-          const size = 1024;
+          const width = 1536;
+          const height = 1024;
           
           // 1. 建立合成圖畫布
           const compCanvas = document.createElement('canvas');
-          compCanvas.width = size;
-          compCanvas.height = size;
+          compCanvas.width = width;
+          compCanvas.height = height;
           const compCtx = compCanvas.getContext('2d');
           if (!compCtx) throw new Error('無法建立合成畫布上下文');
 
           // 背景填滿淺灰色 (對 Inpainting 無影響，AI 會重新繪製透明區域)
           compCtx.fillStyle = '#f3f4f6';
-          compCtx.fillRect(0, 0, size, size);
+          compCtx.fillRect(0, 0, width, height);
 
-          // 官方大圖原尺寸 681x1024，置中繪製
+          // 官方大圖原尺寸 681x1024，放在左側並完整保留
           const mascotWidth = 681;
           const mascotHeight = 1024;
-          const mascotX = (size - mascotWidth) / 2; // 171.5px 左右留白
+          const mascotX = 120;
           const mascotY = 0;
           compCtx.drawImage(mascotImg, mascotX, mascotY, mascotWidth, mascotHeight);
 
-          // 繪製使用者自拍照於右下角，並進行等比例裁切 (避免變形)
-          // 擺放尺寸：寬 340px，高 480px
-          const userW = 340;
-          const userH = 480;
-          const userX = size - userW; // 684px
-          const userY = size - userH; // 544px
+          // 繪製使用者自拍照於右側，並進行等比例裁切 (避免變形)
+          // 此區塊會在 mask 中保護，優先確保真人不被換掉
+          const userW = 430;
+          const userH = 610;
+          const userX = 965;
+          const userY = 250;
+          const userRadius = 36;
 
           const uw = userImg.width;
           const uh = userImg.height;
-          const targetRatio = userW / userH; // 0.708
+          const targetRatio = userW / userH;
 
           let sx = 0, sy = 0, sWidth = uw, sHeight = uh;
           if (uw / uh > targetRatio) {
@@ -68,30 +70,26 @@ function generateCompositeAndMask(
             sy = (uh - sHeight) / 2;
           }
 
+          compCtx.save();
+          drawRoundedRect(compCtx, userX, userY, userW, userH, userRadius);
+          compCtx.clip();
           compCtx.drawImage(userImg, sx, sy, sWidth, sHeight, userX, userY, userW, userH);
+          compCtx.restore();
 
           // 2. 建立遮罩畫布 (Mask Canvas)
           const maskCanvas = document.createElement('canvas');
-          maskCanvas.width = size;
-          maskCanvas.height = size;
+          maskCanvas.width = width;
+          maskCanvas.height = height;
           const maskCtx = maskCanvas.getContext('2d');
           if (!maskCtx) throw new Error('無法建立遮罩畫布上下文');
 
-          // 遮罩預設全黑 (Alpha = 255)，代表絕對保護，禁止 AI 修改
+          // 透明區域交給 AI 重繪；黑色區域保護官方 IP 與使用者本人
+          maskCtx.clearRect(0, 0, width, height);
+
           maskCtx.fillStyle = '#000000';
-          maskCtx.fillRect(0, 0, size, size);
-
-          // 將需要 AI 修改重繪的區域清除為透明 (Alpha = 0)
-          // 包含：左側留白、右側留白、以及使用者自拍照片所在的區塊
-          
-          // 清除左側留白區 (0 ~ mascotX)
-          maskCtx.clearRect(0, 0, mascotX, size);
-          
-          // 清除右側留白區 (mascotX + mascotWidth ~ 1024)
-          maskCtx.clearRect(mascotX + mascotWidth, 0, size - (mascotX + mascotWidth), size);
-
-          // 清除使用者自拍區
-          maskCtx.clearRect(userX, userY, userW, userH);
+          maskCtx.fillRect(mascotX, mascotY, mascotWidth, mascotHeight);
+          drawRoundedRect(maskCtx, userX, userY, userW, userH, userRadius);
+          maskCtx.fill();
 
           resolve({
             composite: compCanvas.toDataURL('image/png'),
@@ -112,6 +110,28 @@ function generateCompositeAndMask(
     userImg.onerror = () => reject(new Error('自拍照載入失敗'));
     userImg.src = userPhotoBase64;
   });
+}
+
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
 
 export default function KioskPage() {
@@ -186,7 +206,7 @@ export default function KioskPage() {
           if (data.emailSent) {
             onEmailSent();
           } else {
-            onEmailFailed();
+            onEmailFailed(data.emailError);
           }
         } else {
           onGenerateError(data.error || '圖片生成失敗');
@@ -289,6 +309,7 @@ export default function KioskPage() {
                 imageUrl={context.generatedImageUrl}
                 sceneName={context.scene || ''}
                 emailSent={context.emailSent}
+                emailError={context.emailError}
                 onReset={reset}
               />
             ) : (

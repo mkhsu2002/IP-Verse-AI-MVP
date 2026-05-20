@@ -49,6 +49,7 @@ export interface GenerateResponse {
   imageUrl?: string;
   scene?: string;
   emailSent?: boolean;
+  emailError?: string;
   error?: string;
 }
 
@@ -73,6 +74,7 @@ export interface KioskContext {
   generatedImageUrl: string | null;
   scene: string | null;
   emailSent: boolean | null;
+  emailError: string | null;
   error: string | null;
   countdown: number;
 }
