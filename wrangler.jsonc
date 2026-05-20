@@ -28,6 +28,16 @@
 			// You can change the bucket name if you want
 			// See https://developers.cloudflare.com/workers/wrangler/commands/#r2-bucket-create
 			"bucket_name": "ip-verse-ai-mvp-opennext-cache"
+		},
+		{
+			"binding": "IP_VERSE_ARTIFACTS",
+			"bucket_name": "ip-verse-ai-generated"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "IP_VERSE_DATA",
+			"id": "16fbea5db8c14b6b8f2c5c8fa3043d2b"
 		}
 	],
 	"images": {

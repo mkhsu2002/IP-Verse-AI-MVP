@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
-import { createSession, getSessionTTLMs } from '@/lib/session-store';
+import {
+  createSession,
+  getActivitySettings,
+  getSessionTTLMs,
+} from '@/lib/session-store';
 import type { CreateSessionRequest, CreateSessionResponse, Session } from '@/types';
 import { nanoid } from 'nanoid';
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CreateSessionRequest;
-    const { email, consent } = body;
+    const { email, consent, activateImmediately } = body;
 
     // Validate email
     if (!email || typeof email !== 'string') {
@@ -34,23 +38,29 @@ export async function POST(request: Request) {
 
     // Create session
     const now = new Date();
+    const settings = await getActivitySettings();
     const session: Session = {
       id: nanoid(),
       email: email.trim(),
       token: nanoid(32),
-      status: 'pending',
+      status:
+        activateImmediately === true && settings.startMode === 'email_button'
+          ? 'active'
+          : 'pending',
+      startMode: settings.startMode,
       consent: true,
       createdAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + getSessionTTLMs()).toISOString(),
     };
 
-    createSession(session);
+    await createSession(session);
 
     return NextResponse.json<CreateSessionResponse>({
       success: true,
       sessionId: session.id,
       token: session.token,
       expiresAt: session.expiresAt,
+      startMode: settings.startMode,
     });
   } catch (error) {
     console.error('Session creation error:', error);

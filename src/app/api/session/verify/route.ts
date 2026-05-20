@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     // Find session by token
-    const session = findSessionByToken(token);
+    const session = await findSessionByToken(token);
 
     if (!session) {
       return NextResponse.json<VerifySessionResponse>(
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     // Activate session
-    updateSession(session.id, { status: 'active' });
+    await updateSession(session.id, { status: 'active' });
 
     return NextResponse.json<VerifySessionResponse>({
       success: true,

@@ -1,4 +1,5 @@
 export type SessionStatus = 'pending' | 'active' | 'completed' | 'expired';
+export type StartMode = 'qr_scan' | 'email_button';
 
 export interface Session {
   id: string;
@@ -6,16 +7,26 @@ export interface Session {
   email: string;
   consent: boolean;
   status: SessionStatus;
+  startMode?: StartMode;
   createdAt: string;
   expiresAt: string;
+  completedAt?: string;
   scene?: string;
   generatedImageUrl?: string;
+  generatedImageKey?: string;
   emailSent?: boolean;
+  emailError?: string;
+}
+
+export interface ActivitySettings {
+  startMode: StartMode;
+  updatedAt: string;
 }
 
 export interface CreateSessionRequest {
   email: string;
   consent: boolean;
+  activateImmediately?: boolean;
 }
 
 export interface CreateSessionResponse {
@@ -23,6 +34,7 @@ export interface CreateSessionResponse {
   sessionId?: string;
   token?: string;
   expiresAt?: string;
+  startMode?: StartMode;
   error?: string;
 }
 

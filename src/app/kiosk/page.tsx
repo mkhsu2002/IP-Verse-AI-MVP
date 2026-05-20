@@ -1,13 +1,18 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useKioskStateMachine } from '@/hooks/useKioskStateMachine';
 import QrScanner from '@/components/kiosk/QrScanner';
 import CameraCapture from '@/components/kiosk/CameraCapture';
 import GeneratingView from '@/components/kiosk/GeneratingView';
 import ResultDisplay from '@/components/kiosk/ResultDisplay';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import type { VerifySessionResponse, GenerateResponse } from '@/types';
+import type {
+  ActivitySettings,
+  CreateSessionResponse,
+  GenerateResponse,
+  VerifySessionResponse,
+} from '@/types';
 
 /**
  * 前端 Canvas 拼貼與遮罩產生器 (方案 A)
@@ -148,6 +153,40 @@ export default function KioskPage() {
     onEmailFailed,
     reset,
   } = useKioskStateMachine();
+  const [settings, setSettings] = useState<ActivitySettings | null>(null);
+  const [email, setEmail] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [emailStartLoading, setEmailStartLoading] = useState(false);
+  const [emailStartError, setEmailStartError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/settings', { cache: 'no-store' });
+        const data = (await res.json()) as {
+          success?: boolean;
+          settings?: ActivitySettings;
+        };
+        if (mounted && data.success && data.settings) {
+          setSettings(data.settings);
+        }
+      } catch {
+        if (mounted) {
+          setSettings({
+            startMode: 'qr_scan',
+            updatedAt: new Date(0).toISOString(),
+          });
+        }
+      }
+    }
+
+    loadSettings();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Handle QR Code scanned → verify session
   const handleQrScanned = useCallback(
@@ -173,6 +212,48 @@ export default function KioskPage() {
       }
     },
     [onQrScanned, onSessionVerified, onSessionError]
+  );
+
+  const handleEmailStart = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setEmailStartError(null);
+
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail) {
+        setEmailStartError('請輸入 Email 地址');
+        return;
+      }
+      if (!consent) {
+        setEmailStartError('請勾選同意條款');
+        return;
+      }
+
+      setEmailStartLoading(true);
+      try {
+        const res = await fetch('/api/session/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: trimmedEmail,
+            consent: true,
+            activateImmediately: true,
+          }),
+        });
+
+        const data: CreateSessionResponse = await res.json();
+        if (data.success && data.sessionId) {
+          onSessionVerified(data.sessionId, trimmedEmail);
+        } else {
+          setEmailStartError(data.error || '建立體驗失敗');
+        }
+      } catch {
+        setEmailStartError('網路連線錯誤');
+      } finally {
+        setEmailStartLoading(false);
+      }
+    },
+    [consent, email, onSessionVerified]
   );
 
   // Handle photo captured → call generate API
@@ -231,6 +312,72 @@ export default function KioskPage() {
   const renderState = () => {
     switch (context.state) {
       case 'IDLE':
+        if (!settings) {
+          return (
+            <div className="w-full h-screen flex items-center justify-center bg-gradient-animated">
+              <LoadingSpinner size="lg" text="載入設定中..." />
+            </div>
+          );
+        }
+
+        if (settings.startMode === 'email_button') {
+          return (
+            <div className="w-full h-screen flex flex-col items-center justify-center gap-8 bg-gradient-animated px-6">
+              <div className="text-8xl animate-bounce">✨</div>
+              <h1 className="text-5xl font-bold font-[family-name:var(--font-outfit)] bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                IP Verse AI
+              </h1>
+              <p className="text-2xl text-white/50">輸入 Email 後開始拍照</p>
+
+              <form
+                onSubmit={handleEmailStart}
+                className="w-full max-w-md space-y-5 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl backdrop-blur-xl"
+              >
+                <div className="space-y-2">
+                  <label
+                    htmlFor="kiosk-email"
+                    className="block text-sm font-medium text-white/70"
+                  >
+                    Email 地址
+                  </label>
+                  <input
+                    id="kiosk-email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/30 outline-none transition focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20"
+                  />
+                </div>
+
+                <label className="flex items-start gap-3 text-sm text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(event) => setConsent(event.target.checked)}
+                    className="mt-1 h-5 w-5 flex-shrink-0 cursor-pointer accent-purple-500"
+                  />
+                  <span>我同意拍攝照片並授權 AI 生成合照圖片。</span>
+                </label>
+
+                {emailStartError && (
+                  <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-sm text-red-300">
+                    {emailStartError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={emailStartLoading}
+                  className="w-full rounded-xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 px-8 py-4 text-lg font-bold text-white shadow-xl transition hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {emailStartLoading ? '建立中...' : '開始拍照互動'}
+                </button>
+              </form>
+            </div>
+          );
+        }
+
         return (
           <div className="w-full h-screen flex flex-col items-center justify-center gap-8 bg-gradient-animated">
             <div className="text-8xl animate-bounce">✨</div>

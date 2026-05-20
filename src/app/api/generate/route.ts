@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { findSessionById, updateSession } from '@/lib/session-store';
+import {
+  findSessionById,
+  saveGeneratedImage,
+  updateSession,
+} from '@/lib/session-store';
 import { generateCompositeImage } from '@/lib/openai-generate';
 import { sendGeneratedImage } from '@/lib/email-sender';
 import { getRandomScene } from '@/lib/scenes';
@@ -48,7 +52,7 @@ export async function POST(request: Request) {
     }
 
     // Verify session
-    const session = findSessionById(sessionId);
+    const session = await findSessionById(sessionId);
 
     if (!session) {
       return NextResponse.json<GenerateResponse>(
@@ -76,8 +80,7 @@ export async function POST(request: Request) {
       sessionId,
     });
 
-    // Return image as a data URL (no filesystem write needed)
-    const imageUrl = `data:image/png;base64,${generatedBase64}`;
+    const storedImage = await saveGeneratedImage(sessionId, generatedBase64);
 
     const emailResult = await sendGeneratedImage(
       session.email,
@@ -86,16 +89,19 @@ export async function POST(request: Request) {
     );
 
     // Update session
-    updateSession(sessionId, {
+    await updateSession(sessionId, {
       status: 'completed',
+      completedAt: new Date().toISOString(),
       scene: scene.name,
-      generatedImageUrl: imageUrl,
+      generatedImageUrl: storedImage.url,
+      generatedImageKey: storedImage.key,
       emailSent: emailResult.sent,
+      emailError: emailResult.error,
     });
 
     return NextResponse.json<GenerateResponse>({
       success: true,
-      imageUrl,
+      imageUrl: storedImage.url,
       scene: scene.name,
       emailSent: emailResult.sent,
       emailError: emailResult.error,
