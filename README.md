@@ -130,6 +130,8 @@ npm run deploy
 ## v0.1 更新
 
 - 首頁改用目前虛擬偶像 IP 參考圖作為 UI 背景，讓使用者先看到合照對象。
+- 首頁顯示目前啟動模式，簡易模式會封印參加者入口，並提供操作指南彈窗。
+- 生成結果頁新增圖片下載、系統分享與 LINE 分享按鈕。
 - 新增 `public/og-image.jpg`，尺寸為 1200x630，並設定 Open Graph / Twitter metadata。
 - 所有 UI 頁面統一顯示版權宣告：
   `© 2026 FlyPig AI - 艾可開發股份有限公司. All rights reserved.`
