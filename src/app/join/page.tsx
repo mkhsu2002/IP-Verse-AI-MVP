@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Card from '@/components/ui/Card';
 import EmailForm from '@/components/join/EmailForm';
 import QrCodeDisplay from '@/components/join/QrCodeDisplay';
+import CopyrightNotice from '@/components/CopyrightNotice';
 import type { CreateSessionResponse } from '@/types';
 
 export default function JoinPage() {
@@ -103,7 +104,7 @@ export default function JoinPage() {
         {/* Footer note */}
         <div className="text-center text-white/20 text-xs space-y-1">
           <p>您的資料僅用於此次體驗活動，不會用於其他用途。</p>
-          <p>© 2026 FlyPig AI -艾可開發股份有限公司. All rights reserved.</p>
+          <CopyrightNotice className="text-white/25" />
         </div>
       </div>
     </main>

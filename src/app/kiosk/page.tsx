@@ -7,6 +7,7 @@ import CameraCapture from '@/components/kiosk/CameraCapture';
 import GeneratingView from '@/components/kiosk/GeneratingView';
 import ResultDisplay from '@/components/kiosk/ResultDisplay';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import CopyrightNotice from '@/components/CopyrightNotice';
 import type {
   ActivitySettings,
   CreateSessionResponse,
@@ -503,6 +504,8 @@ export default function KioskPage() {
       }`}
     >
       {renderState()}
+
+      <CopyrightNotice className="pointer-events-none fixed bottom-3 left-0 right-0 z-50 text-center text-white/35 drop-shadow-[0_1px_8px_rgba(0,0,0,0.7)]" />
 
       {/* Debug state indicator (development only) */}
       {process.env.NODE_ENV === 'development' && (

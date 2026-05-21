@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import CopyrightNotice from '@/components/CopyrightNotice';
 import type { ActivitySettings, SessionStatus, StartMode } from '@/types';
 
 interface ParticipantRow {
@@ -273,6 +274,10 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
+
+        <footer className="border-t border-white/10 pt-6 text-center">
+          <CopyrightNotice />
+        </footer>
       </div>
     </main>
   );

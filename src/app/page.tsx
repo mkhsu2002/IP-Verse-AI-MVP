@@ -1,8 +1,16 @@
 import Link from 'next/link';
+import CopyrightNotice from '@/components/CopyrightNotice';
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8 bg-gradient-animated">
+    <main className="relative min-h-screen overflow-hidden bg-[#0a0614] text-white">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/ipverse-hero.jpg')" }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0a0614]/95 via-[#0a0614]/70 to-[#0a0614]/20" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0614] via-transparent to-[#0a0614]/20" />
+
       {/* Floating particles */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         {Array.from({ length: 15 }).map((_, i) => (
@@ -22,25 +30,25 @@ export default function HomePage() {
         ))}
       </div>
 
-      <div className="relative z-10 text-center space-y-8 max-w-2xl mx-auto">
+      <div className="relative z-10 flex min-h-screen items-center px-6 py-12 md:px-12">
+        <div className="w-full max-w-xl space-y-8">
         {/* Logo / Title */}
-        <div className="space-y-4">
-          <div className="text-6xl mb-4">✨</div>
+        <div className="space-y-5">
           <h1 className="text-5xl md:text-6xl font-bold font-[family-name:var(--font-outfit)] bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
             IP Verse AI
           </h1>
-          <p className="text-xl text-white/60">互動式 AI 合照體驗</p>
+          <p className="text-xl text-white/75">互動式 AI 合照體驗</p>
         </div>
 
         {/* Description */}
-        <p className="text-white/40 text-lg leading-relaxed max-w-md mx-auto">
-          與虛擬 IP 角色一起拍攝 AI 合照
+        <p className="max-w-md text-lg leading-relaxed text-white/65">
+          與畫面中的虛擬偶像角色一起拍攝 AI 合照
           <br />
-          選擇你喜歡的場景，AI 為你創作獨一無二的合照
+          掃描 QR Code、拍下照片，系統會生成活動專屬合影並寄送到信箱
         </p>
 
         {/* Navigation cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Join - Mobile */}
           <Link
             href="/join"
@@ -79,9 +87,10 @@ export default function HomePage() {
         </div>
 
         {/* Footer */}
-        <div className="text-white/20 text-xs mt-16 space-y-1">
+        <div className="space-y-1 pt-2">
           <p>IP Verse AI MVP — Demo Version</p>
-          <p>© 2026 FlyPig AI -艾可開發股份有限公司. All rights reserved.</p>
+          <CopyrightNotice />
+        </div>
         </div>
       </div>
     </main>
