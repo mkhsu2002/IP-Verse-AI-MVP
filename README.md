@@ -139,6 +139,35 @@ npm run deploy
 
 ## 後續建議
 
+- 高優先：將圖像生成改為背景 job，讓瀏覽器可在拍照上傳完成後關閉。
+
+  目前 `/api/generate` 的 OpenAI 生成、R2 儲存與 Email 寄送都綁在前端 `fetch` request 上；如果 kiosk / 手機瀏覽器在生成期間關閉、休眠、網路切換或 request 被中斷，生成流程可能失敗。下一個 IDE 接手時，請優先把流程改成「拍照資料上傳完成並建立 job 後，前端即可顯示已開始生成，使用者可關閉畫面；後端自行完成生成、存圖與寄信」。
+
+  建議目標流程：
+
+  ```text
+  Kiosk 完成拍照
+    → 上傳合成圖 / 遮罩 / 原始自拍到 R2
+    → 建立 generation job，session 標記為 processing
+    → API 立即回傳：已開始生成，可關閉畫面
+    → 背景 Worker / Queue / Workflow 呼叫 OpenAI
+    → 成品存 R2
+    → Email 自動寄給拍照者
+    → session 更新為 completed 或 failed
+  ```
+
+  MVP 快速版可先用 Cloudflare `waitUntil` 或等效背景任務：`/api/generate` 收到照片後先存 R2、寫入 `processing`，立即回前端，再背景呼叫 OpenAI、存成品、寄信。此版本改動較小，但長任務可靠性與重試能力有限。
+
+  正式版建議改用 Cloudflare Queues 或 Workflows：API 只建立 job；Queue/Workflow 負責生成、重試、失敗紀錄、補寄 Email 與狀態同步。session 狀態建議擴充為 `pending → active → processing → completed / failed`，並在 admin 顯示 job 狀態、錯誤原因與補寄操作。
+
+  驗收條件：
+
+  - 拍照資料完成上傳並建立 job 後，關閉瀏覽器不影響後續生成。
+  - 作品完成後自動 Email 到參加者信箱。
+  - OpenAI / R2 / Resend 任一步失敗時，session 必須記錄 `failed` 與可讀錯誤原因。
+  - 同一 session 重複送出不得重複扣成本或重複寄信，需具備冪等保護。
+  - admin 可看到 `processing`、`completed`、`failed` 狀態。
+
 - 加入公開 API rate limiting 與圖片 payload size guard。
 - 將 session 狀態改成 `pending → active → processing → completed/failed`，避免重複生成。
 - 將 R2 作品保留天數改成實際 lifecycle rule 或排程清理。
